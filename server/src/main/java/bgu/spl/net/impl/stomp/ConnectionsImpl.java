@@ -8,8 +8,12 @@ import java.util.Set;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     public HashMap<Integer,ConnectionHandler<T>> activeUsers = new HashMap<>();
-    private Manager manager;
+    public static int connectionsIdCounter;
+    private Manager manager; // noteToSelf: need to initiate manager
 
+    public ConnectionsImpl(){
+        connectionsIdCounter ++;
+    }
     @Override
     public boolean send(int connectionId, T msg) {
         activeUsers.get(connectionId).send(msg);

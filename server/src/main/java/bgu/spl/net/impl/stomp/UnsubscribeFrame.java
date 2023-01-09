@@ -13,7 +13,7 @@ public class UnsubscribeFrame extends AbstractStompFrame{
     }
 
     @Override
-    public void execute() {
-
+    public AbstractStompFrame response() {
+        return null;
     }
 }

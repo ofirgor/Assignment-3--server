@@ -13,7 +13,7 @@ public class DisconnectFrame extends AbstractStompFrame{
     }
 
     @Override
-    public void execute() {
-
+    public AbstractStompFrame response() {
+        return null;
     }
 }

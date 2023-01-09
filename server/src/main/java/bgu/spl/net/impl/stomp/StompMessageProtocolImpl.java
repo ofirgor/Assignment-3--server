@@ -1,7 +1,6 @@
 package bgu.spl.net.impl.stomp;
 
 import bgu.spl.net.api.StompMessagingProtocol;
-import bgu.spl.net.srv.ConnectionHandler;
 import bgu.spl.net.srv.Connections;
 import java.util.HashMap;
 
@@ -10,7 +9,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<Abstract
     private int connectionId;
     @Override
     public void start(int connectionId, Connections<AbstractStompFrame> connections) {
-        //initiates the connections list in the protocol
+        //initiates the connections object in the protocol
         this.connectionId = connectionId;
         this.connections = connections;
     }
@@ -19,7 +18,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<Abstract
     public void process(AbstractStompFrame message) {
         //noteToSelf: gets a frame and handles it according to the frame type,
         // consider making a function for each frame and calling them in process
-
+        AbstractStompFrame responseMsg = message.response();
 
     }
 

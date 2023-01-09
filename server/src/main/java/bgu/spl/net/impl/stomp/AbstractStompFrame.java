@@ -20,7 +20,6 @@ public abstract class AbstractStompFrame implements Serializable {
     public Map<String,String> getHeaders(){
         return headers;
     }
-    public abstract void execute();
-
+    public abstract AbstractStompFrame response();
 
 }

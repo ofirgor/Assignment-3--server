@@ -2,6 +2,7 @@ package bgu.spl.net.impl.stomp;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -10,7 +11,8 @@ import java.util.Set;
 public class Manager {
     private HashMap<String, Set<Integer>> channels; //key is the name of the topic, value is all clients subscribed to that topic
     private HashMap<Integer, Set<String>> usersChannels;//key is client id
-    public static int connectionsIdCounter;
+    private HashMap<String, String> userNameAndPass;
+
 
     public Manager(HashMap<String,Set<Integer>> channels, HashMap<Integer, Set<String>> usersChannels){
         this.channels = channels;
@@ -58,4 +60,15 @@ public class Manager {
             connectionIds.remove(user);
         }
     }
+    public void addUserNameAndPass(String userName, String pass){
+        userNameAndPass.put(userName,pass);
+    }
+    public boolean isUserNameExist(String userName){
+        return userNameAndPass.containsKey(userName);
+    }
+
+    public boolean isCorrectPass(String userName, String pass){
+        return userNameAndPass.get(userName).equals(pass);
+    }
+
 }
