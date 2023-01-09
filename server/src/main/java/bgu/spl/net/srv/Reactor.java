@@ -100,6 +100,7 @@ public class Reactor<T> implements Server<T> {
                 protocolFactory.get(),
                 clientChan,
                 this);
+        //add handler to activeClients
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
 
