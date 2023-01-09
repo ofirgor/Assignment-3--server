@@ -69,17 +69,20 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<Abstrac
         //creat the frame object
         AbstractStompFrame frame;
         switch (frameType) {
-            case "CONNECTED":
-                frame = new ConnectedFrame(headers, body);
+            case "CONNECT":
+                frame = new ConnectFrame(headers, body);
                 break;
-            case "ERROR":
-                frame = new ErrorFrame(headers, body);
+            case "SEND":
+                frame = new SendFrame(headers, body);
                 break;
-            case "MESSAGE":
-                frame = new MessageFrame(headers, body);
+            case "SUBSCRIBE":
+                frame = new SubscribeFrame(headers, body);
                 break;
-            case "RECEIPT":
-                frame = new ReceiptFrame(headers, body);
+            case "UNSUBSCRIBE":
+                frame = new UnsubscribeFrame(headers, body);
+                break;
+            case "DISCONNECT":
+                frame = new DisconnectFrame(headers, body);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported frame type: " + frameType);
