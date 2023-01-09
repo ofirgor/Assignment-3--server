@@ -69,9 +69,6 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<Abstrac
         //creat the frame object
         AbstractStompFrame frame;
         switch (frameType) {
-            case "CONNECT":
-                frame = new ConnectFrame(headers, body);
-                break;
             case "CONNECTED":
                 frame = new ConnectedFrame(headers, body);
                 break;

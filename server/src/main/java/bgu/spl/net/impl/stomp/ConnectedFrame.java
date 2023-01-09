@@ -11,4 +11,9 @@ public class ConnectedFrame extends AbstractStompFrame {
     public String getFrameType() {
         return "CONNECTED";
     }
+
+    @Override
+    public void execute() {
+
+    }
 }

@@ -1,7 +1,8 @@
 package bgu.spl.net.impl.stomp;
 
+import java.io.Serializable;
 import java.util.Map;
-public abstract class AbstractStompFrame {
+public abstract class AbstractStompFrame implements Serializable {
     protected String frameType;
     private Map<String,String> headers;
     private String body;
@@ -19,4 +20,7 @@ public abstract class AbstractStompFrame {
     public Map<String,String> getHeaders(){
         return headers;
     }
+    public abstract void execute();
+
+
 }
