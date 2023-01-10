@@ -2,7 +2,6 @@ package bgu.spl.net.impl.stomp;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -33,9 +32,14 @@ public class Manager {
     /**
      * adds channel to user's channels list
      */
-    public void setUsersChannels(Integer user, String channel){
+    public void subscribeUser(Integer user, String channel){
         usersChannels.get(user).add(channel);
         channels.get(channel).add(user);
+    }
+    public void removeUserFromChannel(Integer user){
+        for (String ch: usersChannels.get(user)) {
+            channels.get(ch).remove(user);
+        }
     }
 
     /**
@@ -70,5 +74,7 @@ public class Manager {
     public boolean isCorrectPass(String userName, String pass){
         return userNameAndPass.get(userName).equals(pass);
     }
+
+
 
 }

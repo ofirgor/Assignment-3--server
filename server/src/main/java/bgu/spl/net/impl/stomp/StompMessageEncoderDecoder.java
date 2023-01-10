@@ -7,13 +7,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class StompMessageEncoderDecoder implements MessageEncoderDecoder<AbstractStompFrame> {
+public class StompMessageEncoderDecoder implements MessageEncoderDecoder<StompFrame> {
     private byte[] bytes = new byte[1 << 10]; //start with 1k
     private int len = 0;
-    private final char NULL_CHAR = '\u0000';
+    public final char NULL_CHAR = '\u0000';
 
     @Override
-    public AbstractStompFrame decodeNextByte(byte nextByte) {
+    public StompFrame decodeNextByte(byte nextByte) {
         if (nextByte == NULL_CHAR)
             return popFrame();
 
@@ -22,7 +22,7 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<Abstrac
     }
 
     @Override
-    public byte[] encode(AbstractStompFrame message) {
+    public byte[] encode(StompFrame message) {
         return (message.toString() + NULL_CHAR).getBytes();
     }
 
@@ -40,7 +40,7 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<Abstrac
         return result;
     }
 
-    private AbstractStompFrame popFrame() {
+    private StompFrame popFrame() {
         //full message received, we split it to lines
         String[] frameLines = popString().split("\n");
         String frameType = frameLines[0];
@@ -67,22 +67,22 @@ public class StompMessageEncoderDecoder implements MessageEncoderDecoder<Abstrac
         String body = bodyStringBuilder.toString().trim();
 
         //creat the frame object
-        AbstractStompFrame frame;
+        StompFrame frame;
         switch (frameType) {
             case "CONNECT":
-                frame = new ConnectFrame(headers, body);
+                frame = new StompFrame("CONNECT", headers, body);
                 break;
             case "SEND":
-                frame = new SendFrame(headers, body);
+                frame = new StompFrame("SEND", headers, body);
                 break;
             case "SUBSCRIBE":
-                frame = new SubscribeFrame(headers, body);
+                frame = new StompFrame("SUBSCRIBE", headers, body);
                 break;
             case "UNSUBSCRIBE":
-                frame = new UnsubscribeFrame(headers, body);
+                frame = new StompFrame("UNSUBSCRIBE", headers, body);
                 break;
             case "DISCONNECT":
-                frame = new DisconnectFrame(headers, body);
+                frame = new StompFrame("DISCONNECT", headers, body);
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported frame type: " + frameType);

@@ -8,7 +8,7 @@ import java.util.Set;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     public HashMap<Integer,ConnectionHandler<T>> activeUsers = new HashMap<>();
-    public static int connectionsIdCounter;
+    public static int connectionsIdCounter; //use atomic integer
     private Manager manager; // noteToSelf: need to initiate manager
 
     public ConnectionsImpl(){
@@ -16,8 +16,11 @@ public class ConnectionsImpl<T> implements Connections<T> {
     }
     @Override
     public boolean send(int connectionId, T msg) {
-        activeUsers.get(connectionId).send(msg);
-        return true;// noteToSelf: check when to return true
+        if (activeUsers.containsKey(connectionId)) {
+            activeUsers.get(connectionId).send(msg);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -32,4 +35,9 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public void disconnect(int connectionId) {
         activeUsers.remove(connectionId);
     }
+
+    public boolean isLoggedIn(int connectionsId){
+        return activeUsers.containsKey(connectionsId);
+    }
+
 }
