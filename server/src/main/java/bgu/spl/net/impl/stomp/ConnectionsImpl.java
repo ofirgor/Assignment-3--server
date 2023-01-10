@@ -5,14 +5,18 @@ import bgu.spl.net.srv.Connections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConnectionsImpl<T> implements Connections<T> {
     public HashMap<Integer,ConnectionHandler<T>> activeUsers = new HashMap<>();
-    public static int connectionsIdCounter; //use atomic integer
+    private static AtomicInteger connectionsIdCounter;
     private Manager manager; // noteToSelf: need to initiate manager
 
+
     public ConnectionsImpl(){
-        connectionsIdCounter ++;
+        connectionsIdCounter=new AtomicInteger(0);
+    } public int incAndGetIdCount(){
+        return connectionsIdCounter.incrementAndGet();
     }
     @Override
     public boolean send(int connectionId, T msg) {

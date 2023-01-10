@@ -4,6 +4,7 @@ import bgu.spl.net.api.StompMessagingProtocol;
 import bgu.spl.net.srv.Connections;
 
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFrame> {
     private Connections<StompFrame> connections;
@@ -11,17 +12,22 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
     private Manager manager;
 
     private boolean shouldTerminate;
+    private static AtomicInteger messageCounter=new AtomicInteger(0);
     @Override
     public void start(int connectionId, Connections<StompFrame> connections) {
         //initiates the connections object in the protocol
         this.connectionId = connectionId;
         this.connections = connections;
         shouldTerminate = false;
+
+    }
+    public static int getNewMessageId(){
+        return messageCounter.getAndIncrement();
     }
 
     @Override
     public void process(StompFrame message) {
-        StompFrame responseMsg = new StompFrame();
+        StompFrame responseMsg = null;
         String frameType = message.getFrameType();
         switch (frameType){
             case "CONNECT":
@@ -42,54 +48,96 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
 
                     }
                     HashMap<String, String> connectedHeaders = new HashMap<>();
-                    connectedHeaders.put("version","1.2");
+                    connectedHeaders.put("version",version);
                     responseMsg = new StompFrame("CONNECTED", connectedHeaders, "");
 
                 }
                 catch (FrameException ex){
-                    StompFrame errorFrame = ex.makeErrorFrame();
-                    connections.send(connectionId, errorFrame);
+                    connections.send(connectionId, ex.makeErrorFrame());
                 }
                 break;
             case "DISCONNECT":
                     manager.emptyUserChannels(connectionId);
-                    manager.removeUserFromChannel(connectionId);
+                    manager.removeUserFromChannels(connectionId);
                     connections.disconnect(connectionId);
                     HashMap<String,String> receiptHeaders = new HashMap<>();
                     try {
                         receiptHeaders.put("receipt - id", message.getHeaderByKey("receipt"));
                     }
                     catch (FrameException ex){
-                        StompFrame errorFrame = ex.makeErrorFrame();
-                        connections.send(connectionId, errorFrame);
+                        connections.send(connectionId,ex.makeErrorFrame());
                     }
                     responseMsg = new StompFrame("RECEIPT",receiptHeaders,"");
                     shouldTerminate = true;
-
                     break;
             case "SUBSCRIBE":
                 try {
                     String[] valueParts = message.getHeaderByKey("destination").split("/");
                     String topic = valueParts[valueParts.length-1];
-                    manager.subscribeUser(connectionId, topic);
+                    String id = (message.getHeaderByKey("id"));
+                    String receipt = message.getHeaderByKey("receipt");
+                    Integer subId = manager.getSubscriptionId(connectionId,id,message);
+                    manager.subscribeUser(connectionId, topic,subId);
+                    HashMap<String,String> receiptSubscribedHeaders = new HashMap<>();
+                    receiptSubscribedHeaders.put("receipt - id",receipt);
+                    responseMsg = new StompFrame("RECEIPT", receiptSubscribedHeaders,"");
+
+                    //need to complete this~~
+
 
                 }
                 catch (FrameException ex){
+                    connections.send(connectionId,ex.makeErrorFrame());
+                }
+                break;
+            case "UNSUBSCRIBE":
+                    try{
+                        HashMap<String,String> receiptUnsubscribedHeaders = new HashMap<>();
+                        Integer id = manager.getSubscriptionId(connectionId,message.getHeaderByKey("id"),message);
+                        manager.removeUserFromChannels(connectionId);
+                        manager.removeChannel(connectionId,id,message);
+                        receiptUnsubscribedHeaders.put("receipt - id", String.valueOf(id));
+                        responseMsg = new StompFrame("RECEIPT", receiptUnsubscribedHeaders,"");
+                    }
+                    catch (FrameException ex) {
+                        connections.send(connectionId,ex.makeErrorFrame());
+                    }
+                    break;
+            case "SEND":
+                try {
+                    String[] valueParts = message.getHeaderByKey("destination").split("/");
+                    String topic = valueParts[valueParts.length-1];
+                    String body = message.getBody();
+                    String id = String.valueOf(manager.getSubscriptionId(connectionId,topic,message));
+                    HashMap<String,String> messageHeaders = new HashMap<>();
+                    messageHeaders.put("subscription", id);
+                    messageHeaders.put("message - id", String.valueOf(getNewMessageId()));
+                    messageHeaders.put("destination", message.getHeaderByKey("destination"));
+                    StompFrame messageFrame = new StompFrame("MESSAGE",messageHeaders,body);
+                    connections.send(topic,messageFrame);
 
                 }
+                catch (FrameException ex){
+                    connections.send(connectionId,ex.makeErrorFrame());
+                }
+
 
 
 
         }
-        connections.send(connectionId, responseMsg);
+        if (responseMsg != null)
+            connections.send(connectionId, responseMsg);
 
 
     }
 
     @Override
     public boolean shouldTerminate() {
-        return false;
+        return shouldTerminate;
     }
+
+
+
 
 
 

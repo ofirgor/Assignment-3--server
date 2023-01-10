@@ -9,18 +9,18 @@ import java.util.Set;
  */
 public class Manager {
     private HashMap<String, Set<Integer>> channels; //key is the name of the topic, value is all clients subscribed to that topic
-    private HashMap<Integer, Set<String>> usersChannels;//key is client id
+    private HashMap<Integer, HashMap<String,Integer>> usersChannels;//key is client id
     private HashMap<String, String> userNameAndPass;
 
 
-    public Manager(HashMap<String,Set<Integer>> channels, HashMap<Integer, Set<String>> usersChannels){
+    public Manager(HashMap<String,Set<Integer>> channels, HashMap<Integer, HashMap<String,Integer>> usersChannels){
         this.channels = channels;
         this.usersChannels = usersChannels;
     }
     public HashMap<String, Set<Integer>> getChannelsMap(){
         return channels;
     }
-    public HashMap<Integer, Set<String>> getUsersChannelsMap(){
+    public HashMap<Integer, HashMap<String,Integer>> getUsersChannelsMap(){
         return usersChannels;
     }
     public void addChannel(String channel){
@@ -32,22 +32,36 @@ public class Manager {
     /**
      * adds channel to user's channels list
      */
-    public void subscribeUser(Integer user, String channel){
-        usersChannels.get(user).add(channel);
-        channels.get(channel).add(user);
+    public void subscribeUser(Integer user, String channel, Integer subscriptionId) throws FrameException{
+        if (channels.containsKey(channel)) {
+            usersChannels.get(user).put(channel,subscriptionId);
+            channels.get(channel).add(user);
+        }
+        else
+            throw new FrameException("'" +channel+ "'" + "is not a valid topic");
     }
-    public void removeUserFromChannel(Integer user){
-        for (String ch: usersChannels.get(user)) {
+    public void removeUserFromChannels(Integer user){
+        for (String ch: usersChannels.get(user).keySet()) {
             channels.get(ch).remove(user);
         }
-    }
 
+    }
     /**
      * removes channel from user's channels list
      */
-    public void removeChannel(Integer user, String channel){
-        usersChannels.get(user).remove(channel);
-        channels.get(channel).remove(user);
+    public void removeChannel(Integer user, Integer subscriptionId, StompFrame frame) throws FrameException{
+        String channel = "";
+        HashMap<String,Integer> topics = usersChannels.get(user);
+        for (Map.Entry<String,Integer> topic: topics.entrySet()){
+            if (topic.getValue().equals(subscriptionId))
+                channel= topic.getKey();
+        }
+        if (channel == "")
+            throw new FrameException("channel doesn't exist", frame);
+        else {
+            usersChannels.get(user).remove(channel);
+            channels.get(channel).remove(user);
+        }
     }
     public boolean isUserInChannel(Integer user, String channel){
         return channels.get(channel).contains(user);
@@ -74,7 +88,20 @@ public class Manager {
     public boolean isCorrectPass(String userName, String pass){
         return userNameAndPass.get(userName).equals(pass);
     }
-
-
+    public Integer getSubscriptionId(Integer user,String id, StompFrame frame) throws FrameException{
+        Integer subId = parseToInt(id,frame);
+        if (usersChannels.get(user).keySet().contains(subId))
+            return subId;
+        else
+            throw new FrameException("subscription id doesn't exist", frame);
+    }
+    public Integer parseToInt(String str, StompFrame frame) throws FrameException {
+        for (char c : str.toCharArray()) {
+            if (!Character.isDigit(c)) {
+                throw new FrameException("not valid id", frame);
+            }
+        }
+        return Integer.parseInt(str);
+    }
 
 }

@@ -11,16 +11,14 @@ public class FrameException extends Exception{
         super(msg);
         this.frame = frame;
     }
-    public ErrorFrame makeErrorFrame(){
+    public StompFrame makeErrorFrame(){
         HashMap<String,String> errorHeaders = new HashMap<>();
         String body ="";
-        ErrorFrame errorFrame;
         if (frame.getHeaders().containsKey("receipt - id"))
             errorHeaders.put("receipt - id", frame.getHeaders().get("receipt - id"));
         errorHeaders.put("message", super.getMessage());
         String theMessageValue = "\n" + "-----" + frame.toString() + "-----";
         errorHeaders.put("The message", theMessageValue);
-        errorFrame = new ErrorFrame(errorHeaders, theMessageValue);
-        return errorFrame;
+        return new StompFrame("ERROR",errorHeaders, theMessageValue);
     }
 }
