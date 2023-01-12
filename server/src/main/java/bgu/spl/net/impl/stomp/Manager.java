@@ -1,71 +1,52 @@
 package bgu.spl.net.impl.stomp;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * class Manager contains and responsible for all the different hashMaps we need
  */
 public class Manager {
-    private HashMap<String, Set<Integer>> channels; //key is the name of the topic, value is all clients subscribed to that topic
-    private HashMap<Integer, HashMap<String,Integer>> usersChannels;//key is client id
-    private HashMap<String, String> userNameAndPass;
-
-
-    public Manager(HashMap<String,Set<Integer>> channels, HashMap<Integer, HashMap<String,Integer>> usersChannels){
-        this.channels = channels;
-        this.usersChannels = usersChannels;
-    }
-    public HashMap<String, Set<Integer>> getChannelsMap(){
-        return channels;
-    }
+    private ConcurrentHashMap<Integer, HashMap<String,Integer>> usersChannels = new ConcurrentHashMap<>();//key is client id
+    private ConcurrentHashMap<String, String> userNameAndPass = new ConcurrentHashMap<>();
     public HashMap<Integer, HashMap<String,Integer>> getUsersChannelsMap(){
-        return usersChannels;
-    }
-    public void addChannel(String channel){
-        channels.put(channel,null);
+        return new HashMap<>(usersChannels);
     }
     public void addUser(Integer user) {
-        usersChannels.put(user, null);
+        usersChannels.put(user, new HashMap<String, Integer>());
     }
     /**
      * adds channel to user's channels list
      */
     public void subscribeUser(Integer user, String channel, Integer subscriptionId) throws FrameException{
-        if (channels.containsKey(channel)) {
+        if (usersChannels.get(user) != null) {
             usersChannels.get(user).put(channel,subscriptionId);
-            channels.get(channel).add(user);
         }
         else
-            throw new FrameException("'" +channel+ "'" + "is not a valid topic");
+            throw new FrameException("user name doesn't exist");
     }
-    public void removeUserFromChannels(Integer user){
-        for (String ch: usersChannels.get(user).keySet()) {
-            channels.get(ch).remove(user);
-        }
 
-    }
     /**
      * removes channel from user's channels list
      */
-    public void removeChannel(Integer user, Integer subscriptionId, StompFrame frame) throws FrameException{
-        String channel = "";
-        HashMap<String,Integer> topics = usersChannels.get(user);
-        for (Map.Entry<String,Integer> topic: topics.entrySet()){
-            if (topic.getValue().equals(subscriptionId))
-                channel= topic.getKey();
+    public void unsubscribeUser(Integer user, String subscriptionId, StompFrame frame) throws FrameException{
+        boolean removed = false;
+        Integer subId = parseToInt(subscriptionId,frame);
+        HashMap<String, Integer> topics = usersChannels.get(user);
+        for (Map.Entry<String, Integer> topic : topics.entrySet()) {
+            if (topic.getValue().equals(subId)) {
+                topics.remove(topic.getKey());
+                removed = true;
+                break;
+            }
         }
-        if (channel == "")
-            throw new FrameException("channel doesn't exist", frame);
-        else {
-            usersChannels.get(user).remove(channel);
-            channels.get(channel).remove(user);
-        }
+        if (!removed)
+            throw new FrameException("user is not subscribed to that channel", frame);
     }
-    public boolean isUserInChannel(Integer user, String channel){
-        return channels.get(channel).contains(user);
-    }
+
 
     /**
      *
@@ -73,10 +54,6 @@ public class Manager {
      */
     public void emptyUserChannels(Integer user){
         usersChannels.get(user).clear();
-        for(Map.Entry<String,Set<Integer>> entry: channels.entrySet()){
-            Set<Integer> connectionIds = entry.getValue();
-            connectionIds.remove(user);
-        }
     }
     public void addUserNameAndPass(String userName, String pass){
         userNameAndPass.put(userName,pass);
@@ -88,12 +65,19 @@ public class Manager {
     public boolean isCorrectPass(String userName, String pass){
         return userNameAndPass.get(userName).equals(pass);
     }
-    public Integer getSubscriptionId(Integer user,String id, StompFrame frame) throws FrameException{
-        Integer subId = parseToInt(id,frame);
-        if (usersChannels.get(user).keySet().contains(subId))
-            return subId;
-        else
-            throw new FrameException("subscription id doesn't exist", frame);
+
+    /**
+     *
+     * adds new channel to the list and returns the subscription I'd
+     */
+    public Integer addNewChannel(Integer user,String channelName, StompFrame frame) throws FrameException{
+        Integer subId = parseToInt(channelName,frame);
+        HashMap<String, Integer> ch = new HashMap<>();
+        ch.put(channelName, subId);
+        usersChannels.putIfAbsent(user,ch);
+        Set<Integer> users = new HashSet<>();
+        users.add(user);
+        return subId;
     }
     public Integer parseToInt(String str, StompFrame frame) throws FrameException {
         for (char c : str.toCharArray()) {
@@ -102,6 +86,11 @@ public class Manager {
             }
         }
         return Integer.parseInt(str);
+    }
+    public Integer getSubscriptionId(Integer user, String channelName, StompFrame frame) throws FrameException{
+        if(usersChannels.get(user).get(channelName) != null)
+            return usersChannels.get(user).get(channelName);
+        throw new FrameException("user is not subscribed to that channel", frame);
     }
 
 }

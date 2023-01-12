@@ -14,10 +14,11 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
     private boolean shouldTerminate;
     private static AtomicInteger messageCounter=new AtomicInteger(0);
     @Override
-    public void start(int connectionId, Connections<StompFrame> connections) {
+    public void start(int connectionId, Connections<StompFrame> connections,Manager manager) {
         //initiates the connections object in the protocol
         this.connectionId = connectionId;
         this.connections = connections;
+        this.manager = manager;
         shouldTerminate = false;
 
     }
@@ -29,106 +30,109 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
     public void process(StompFrame message) {
         StompFrame responseMsg = null;
         String frameType = message.getFrameType();
-        switch (frameType){
-            case "CONNECT":
-                try {
-                    String version = message.getHeaderByKey("accept - version");
-                    String userName = message.getHeaderByKey("login");
-                    String pass = message.getHeaderByKey("passcode");
-                    String host = message.getHeaderByKey("host");
-
-                    if (!manager.isUserNameExist(userName)) {
-                        manager.addUser(connectionId);
-                        manager.addUserNameAndPass(userName, pass);
-                    } else {
-                        if (!manager.isCorrectPass(userName, pass))
-                            throw new FrameException("wrong password", message);
-                        else if (connections.isLoggedIn(connectionId))
-                            throw new FrameException("user already logged in", message);
-
-                    }
-                    HashMap<String, String> connectedHeaders = new HashMap<>();
-                    connectedHeaders.put("version",version);
-                    responseMsg = new StompFrame("CONNECTED", connectedHeaders, "");
-
-                }
-                catch (FrameException ex){
-                    connections.send(connectionId, ex.makeErrorFrame());
-                }
-                break;
-            case "DISCONNECT":
-                    manager.emptyUserChannels(connectionId);
-                    manager.removeUserFromChannels(connectionId);
-                    connections.disconnect(connectionId);
-                    HashMap<String,String> receiptHeaders = new HashMap<>();
-                    try {
-                        receiptHeaders.put("receipt - id", message.getHeaderByKey("receipt"));
-                    }
-                    catch (FrameException ex){
-                        connections.send(connectionId,ex.makeErrorFrame());
-                    }
-                    responseMsg = new StompFrame("RECEIPT",receiptHeaders,"");
-                    shouldTerminate = true;
+        try {
+            switch (frameType) {
+                case "CONNECT":
+                    responseMsg = connect(connectionId, message);
                     break;
-            case "SUBSCRIBE":
-                try {
-                    String[] valueParts = message.getHeaderByKey("destination").split("/");
-                    String topic = valueParts[valueParts.length-1];
-                    String id = (message.getHeaderByKey("id"));
-                    String receipt = message.getHeaderByKey("receipt");
-                    Integer subId = manager.getSubscriptionId(connectionId,id,message);
-                    manager.subscribeUser(connectionId, topic,subId);
-                    HashMap<String,String> receiptSubscribedHeaders = new HashMap<>();
-                    receiptSubscribedHeaders.put("receipt - id",receipt);
-                    responseMsg = new StompFrame("RECEIPT", receiptSubscribedHeaders,"");
-
-                    //need to complete this~~
-
-
-                }
-                catch (FrameException ex){
-                    connections.send(connectionId,ex.makeErrorFrame());
-                }
-                break;
-            case "UNSUBSCRIBE":
-                    try{
-                        HashMap<String,String> receiptUnsubscribedHeaders = new HashMap<>();
-                        Integer id = manager.getSubscriptionId(connectionId,message.getHeaderByKey("id"),message);
-                        manager.removeUserFromChannels(connectionId);
-                        manager.removeChannel(connectionId,id,message);
-                        receiptUnsubscribedHeaders.put("receipt - id", String.valueOf(id));
-                        responseMsg = new StompFrame("RECEIPT", receiptUnsubscribedHeaders,"");
-                    }
-                    catch (FrameException ex) {
-                        connections.send(connectionId,ex.makeErrorFrame());
-                    }
+                case "DISCONNECT":
+                    responseMsg = disconnect(connectionId, message);
                     break;
-            case "SEND":
-                try {
-                    String[] valueParts = message.getHeaderByKey("destination").split("/");
-                    String topic = valueParts[valueParts.length-1];
-                    String body = message.getBody();
-                    String id = String.valueOf(manager.getSubscriptionId(connectionId,topic,message));
-                    HashMap<String,String> messageHeaders = new HashMap<>();
-                    messageHeaders.put("subscription", id);
-                    messageHeaders.put("message - id", String.valueOf(getNewMessageId()));
-                    messageHeaders.put("destination", message.getHeaderByKey("destination"));
-                    StompFrame messageFrame = new StompFrame("MESSAGE",messageHeaders,body);
-                    connections.send(topic,messageFrame);
+                case "SUBSCRIBE":
+                    responseMsg = subscribe(connectionId, message);
+                    break;
+                case "UNSUBSCRIBE":
+                    responseMsg = unsubscribe(connectionId, message);
+                    break;
+                case "SEND":
+                    send(connectionId,message);
+                    break;
+            }
+            if (responseMsg != null)
+                connections.send(connectionId, responseMsg);
+        } catch (FrameException ex) {
+            ex.printStackTrace();
+            connections.send(connectionId, ex.makeErrorFrame());
+        }
+    }
 
-                }
-                catch (FrameException ex){
-                    connections.send(connectionId,ex.makeErrorFrame());
-                }
-
-
-
+    public StompFrame connect(int connectionId, StompFrame message) throws FrameException{
+        String version = message.getHeaderByKey("accept-version");
+        String userName = message.getHeaderByKey("login");
+        String pass = message.getHeaderByKey("passcode");
+        String host = message.getHeaderByKey("host");
+        tryGetReceiptId(connectionId, message);
+        if (!manager.isUserNameExist(userName)) {
+            manager.addUser(connectionId);
+            manager.addUserNameAndPass(userName, pass);
+        } else {
+            if (!manager.isCorrectPass(userName, pass)) {
+                System.out.println("wrong password");
+                throw new FrameException("wrong password", message);
+            } else if (connections.isLoggedIn(connectionId)) {
+                System.out.println("user already logged in");
+                throw new FrameException("user already logged in", message);
+            }
 
         }
-        if (responseMsg != null)
-            connections.send(connectionId, responseMsg);
+        HashMap<String, String> connectedHeaders = new HashMap<>();
+        connectedHeaders.put("version", version);
+        return new StompFrame("CONNECTED", connectedHeaders, "");
+    }
 
+    public StompFrame disconnect(int connectionId, StompFrame message) throws FrameException {
+        manager.emptyUserChannels(connectionId);
+        connections.disconnect(connectionId);
+        HashMap<String, String> receiptHeaders = new HashMap<>();
+        receiptHeaders.put("receipt - id", message.getHeaderByKey("receipt"));
+        shouldTerminate = true;
+        return new StompFrame("RECEIPT", receiptHeaders, "");
+    }
 
+    public StompFrame subscribe(int connectionId, StompFrame message) throws FrameException {
+        String[] valueParts = message.getHeaderByKey("destination").split("/");
+        String topic = valueParts[valueParts.length - 1];
+        String id = (message.getHeaderByKey("id"));
+        String receipt = message.getHeaderByKey("receipt");
+        Integer subId = manager.parseToInt(id,message);
+        manager.subscribeUser(connectionId, topic, subId);
+        HashMap<String, String> receiptHeaders = new HashMap<>();
+        receiptHeaders.put("receipt - id", receipt);
+        return new StompFrame("RECEIPT", receiptHeaders, "");
+    }
+
+    public StompFrame unsubscribe(int connectionId, StompFrame message) throws FrameException{
+        HashMap<String, String> receiptHeaders = new HashMap<>();
+        manager.unsubscribeUser(connectionId,message.getHeaderByKey("id"),message);
+        receiptHeaders.put("receipt - id", message.getHeaderByKey("id"));
+        return new StompFrame("RECEIPT", receiptHeaders, "");
+    }
+
+    public void send(int connectionId, StompFrame message) throws FrameException {
+        tryGetReceiptId(connectionId, message);
+        String[] valueParts = message.getHeaderByKey("destination").split("/");
+        String topic = valueParts[valueParts.length - 1];
+        String body = message.getBody();
+        Integer id = manager.getSubscriptionId(connectionId,topic,message);
+        HashMap<String, String> messageHeaders = new HashMap<>();
+        messageHeaders.put("subscription", String.valueOf(id));
+        messageHeaders.put("message - id", String.valueOf(getNewMessageId()));
+        messageHeaders.put("destination", message.getHeaderByKey("destination"));
+        StompFrame messageFrame = new StompFrame("MESSAGE", messageHeaders, body);
+        connections.send(topic, messageFrame);
+    }
+
+    private void tryGetReceiptId(int connectionId, StompFrame message) {
+        String receiptId="";
+        try{
+            receiptId = message.getHeaderByKey("receipt");
+        }
+        catch (FrameException ignored){}
+        if (!receiptId.equals("")) {
+            HashMap<String, String> receiptHeaders = new HashMap<>();
+            receiptHeaders.put("receipt - id", receiptId);
+            connections.send(connectionId, new StompFrame("RECEIPT",receiptHeaders,""));
+        }
     }
 
     @Override

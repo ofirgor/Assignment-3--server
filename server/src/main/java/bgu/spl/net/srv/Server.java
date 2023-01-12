@@ -3,6 +3,8 @@ package bgu.spl.net.srv;
 import bgu.spl.net.api.MessageEncoderDecoder;
 import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompMessagingProtocol;
+import bgu.spl.net.impl.stomp.ConnectionsImpl;
+import bgu.spl.net.impl.stomp.Manager;
 
 import java.io.Closeable;
 import java.util.function.Supplier;
@@ -22,15 +24,18 @@ public interface Server<T> extends Closeable {
      * @param <T> The Message Object for the protocol
      * @return A new Thread per client server
      */
-    public static <T> Server<T>  threadPerClient(
+    public static <T> Server<T> threadPerClient(
             int port,
-            Supplier<MessagingProtocol<T> > protocolFactory,
-            Supplier<MessageEncoderDecoder<T> > encoderDecoderFactory) {
+            Supplier<StompMessagingProtocol<T> > protocolFactory,
+            Supplier<MessageEncoderDecoder<T> > encoderDecoderFactory,
+            ConnectionsImpl<T> connections,
+            Manager manager) {
 
-        return new BaseServer<T>(port, protocolFactory, encoderDecoderFactory) {
+        return new BaseServer<T>(port, protocolFactory, encoderDecoderFactory, connections, manager) {
             @Override
             protected void execute(BlockingConnectionHandler<T>  handler) {
                 new Thread(handler).start();
+
             }
         };
 
@@ -49,8 +54,10 @@ public interface Server<T> extends Closeable {
             int nthreads,
             int port,
             Supplier<StompMessagingProtocol<T>> protocolFactory,
-            Supplier<MessageEncoderDecoder<T>> encoderDecoderFactory) {
-        return new Reactor<T>(nthreads, port, protocolFactory, encoderDecoderFactory);
+            Supplier<MessageEncoderDecoder<T>> encoderDecoderFactory,
+            ConnectionsImpl<T> connections,
+            Manager manager) {
+        return new Reactor<T>(nthreads, port, protocolFactory, encoderDecoderFactory,connections,manager);
     }
 
 }

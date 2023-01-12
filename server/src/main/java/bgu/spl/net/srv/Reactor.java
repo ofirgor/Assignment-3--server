@@ -3,6 +3,9 @@ package bgu.spl.net.srv;
 import bgu.spl.net.api.MessageEncoderDecoder;
 import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompMessagingProtocol;
+import bgu.spl.net.impl.stomp.ConnectionsImpl;
+import bgu.spl.net.impl.stomp.Manager;
+import bgu.spl.net.impl.stomp.StompMessageProtocolImpl;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -14,6 +17,7 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Supplier;
 
+
 public class Reactor<T> implements Server<T> {
 
     private final int port;
@@ -21,20 +25,25 @@ public class Reactor<T> implements Server<T> {
     private final Supplier<MessageEncoderDecoder<T>> readerFactory;
     private final ActorThreadPool pool;
     private Selector selector;
-
+    private Manager manager;
     private Thread selectorThread;
     private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
+    private ConnectionsImpl<T> connections;
 
     public Reactor(
             int numThreads,
             int port,
             Supplier<StompMessagingProtocol<T>> protocolFactory,
-            Supplier<MessageEncoderDecoder<T>> readerFactory) {
+            Supplier<MessageEncoderDecoder<T>> readerFactory,
+            ConnectionsImpl<T> connections,
+            Manager manager) {
 
         this.pool = new ActorThreadPool(numThreads);
         this.port = port;
         this.protocolFactory = protocolFactory;
         this.readerFactory = readerFactory;
+        this.manager = manager;
+        this.connections = connections;
     }
 
     @Override
@@ -97,13 +106,16 @@ public class Reactor<T> implements Server<T> {
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
-       // int connectionId = connections.incAndGetIdCount();
+        StompMessagingProtocol<T> protocol = protocolFactory.get();
+
+        int connectionId = connections.incAndGetIdCount();
         final NonBlockingConnectionHandler<T> handler = new NonBlockingConnectionHandler<>(
                 readerFactory.get(),
-                protocolFactory.get(),
+                protocol,
                 clientChan,
                 this);
-        //add handler to activeClients
+        handler.start(connectionId,connections,manager);
+        connections.connect(connectionId,handler);
         clientChan.register(selector, SelectionKey.OP_READ, handler);
     }
 

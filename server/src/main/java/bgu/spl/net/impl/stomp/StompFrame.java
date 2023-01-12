@@ -39,8 +39,17 @@ public class StompFrame {
     public String getHeaderByKey(String headerName) throws FrameException{
         if(headers.containsKey(headerName))
             return headers.get(headerName);
-        throw new FrameException("No" + headerName+ "key", this);
+        throw new FrameException("No " + headerName+ " key", this);
     }
-
+    @Override
+    public String toString(){
+        StringBuilder sb = new StringBuilder();
+        sb.append(this.frameType).append("\n");
+        for (Map.Entry<String, String> entry : headers.entrySet()) {
+            sb.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+        }
+        sb.append("\n").append(body).append("\n");
+        return sb.toString();
+    }
 
 }

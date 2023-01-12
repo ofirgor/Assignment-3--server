@@ -3,6 +3,9 @@ package bgu.spl.net.srv;
 import bgu.spl.net.api.MessageEncoderDecoder;
 import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.api.StompMessagingProtocol;
+import bgu.spl.net.impl.stomp.Manager;
+import bgu.spl.net.impl.stomp.StompMessageProtocolImpl;
+import bgu.spl.net.impl.stomp.StompServer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -117,5 +120,8 @@ public class NonBlockingConnectionHandler<T> implements ConnectionHandler<T> {
     public void send(T msg) {
         writeQueue.add(ByteBuffer.wrap(encdec.encode(msg)));
         reactor.updateInterestedOps(chan, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+    }
+    public void start(Integer id, Connections<T> connections, Manager manager) {
+        protocol.start(id, connections, manager);
     }
 }
