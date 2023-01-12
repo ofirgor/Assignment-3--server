@@ -15,7 +15,6 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
     private static AtomicInteger messageCounter=new AtomicInteger(0);
     @Override
     public void start(int connectionId, Connections<StompFrame> connections,Manager manager) {
-        //initiates the connections object in the protocol
         this.connectionId = connectionId;
         this.connections = connections;
         this.manager = manager;
@@ -37,6 +36,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
                     break;
                 case "DISCONNECT":
                     responseMsg = disconnect(connectionId, message);
+                    shouldTerminate = true;
                     break;
                 case "SUBSCRIBE":
                     responseMsg = subscribe(connectionId, message);
@@ -84,8 +84,8 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         manager.emptyUserChannels(connectionId);
         connections.disconnect(connectionId);
         HashMap<String, String> receiptHeaders = new HashMap<>();
-        receiptHeaders.put("receipt - id", message.getHeaderByKey("receipt"));
-        shouldTerminate = true;
+        receiptHeaders.put("receipt-id", message.getHeaderByKey("receipt"));
+
         return new StompFrame("RECEIPT", receiptHeaders, "");
     }
 
@@ -97,14 +97,14 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         Integer subId = manager.parseToInt(id,message);
         manager.subscribeUser(connectionId, topic, subId);
         HashMap<String, String> receiptHeaders = new HashMap<>();
-        receiptHeaders.put("receipt - id", receipt);
+        receiptHeaders.put("receipt-id", receipt);
         return new StompFrame("RECEIPT", receiptHeaders, "");
     }
 
     public StompFrame unsubscribe(int connectionId, StompFrame message) throws FrameException{
         HashMap<String, String> receiptHeaders = new HashMap<>();
         manager.unsubscribeUser(connectionId,message.getHeaderByKey("id"),message);
-        receiptHeaders.put("receipt - id", message.getHeaderByKey("id"));
+        receiptHeaders.put("receipt-id", message.getHeaderByKey("id"));
         return new StompFrame("RECEIPT", receiptHeaders, "");
     }
 
@@ -130,7 +130,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         catch (FrameException ignored){}
         if (!receiptId.equals("")) {
             HashMap<String, String> receiptHeaders = new HashMap<>();
-            receiptHeaders.put("receipt - id", receiptId);
+            receiptHeaders.put("receipt-id", receiptId);
             connections.send(connectionId, new StompFrame("RECEIPT",receiptHeaders,""));
         }
     }
