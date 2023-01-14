@@ -13,8 +13,8 @@ public class FrameException extends Exception{
     }
     public StompFrame makeErrorFrame(){
         HashMap<String,String> errorHeaders = new HashMap<>();
-        if (frame.getHeaders().containsKey("receipt - id"))
-            errorHeaders.put("receipt - id", frame.getHeaders().get("receipt - id"));
+        if (frame.getHeaders().containsKey("receipt-id"))
+            errorHeaders.put("receipt-id", frame.getHeaders().get("receipt-id"));
         errorHeaders.put("message", getMessage());
         String body =  "-----\n" + frame.toString() + "\n-----";;
         return new StompFrame("ERROR",errorHeaders, body);

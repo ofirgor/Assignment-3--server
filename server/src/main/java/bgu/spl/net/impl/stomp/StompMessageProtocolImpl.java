@@ -4,6 +4,7 @@ import bgu.spl.net.api.StompMessagingProtocol;
 import bgu.spl.net.srv.Connections;
 
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFrame> {
@@ -13,6 +14,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
 
     private boolean shouldTerminate;
     private static AtomicInteger messageCounter=new AtomicInteger(0);
+    private ConcurrentHashMap<Integer,String> loggedInUsers = new ConcurrentHashMap<>();
     @Override
     public void start(int connectionId, Connections<StompFrame> connections,Manager manager) {
         this.connectionId = connectionId;
@@ -60,21 +62,22 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         String version = message.getHeaderByKey("accept-version");
         String userName = message.getHeaderByKey("login");
         String pass = message.getHeaderByKey("passcode");
-        String host = message.getHeaderByKey("host");
-        tryGetReceiptId(connectionId, message);
+        message.getHeaderByKey("host"); //just to check it is a valid header
         if (!manager.isUserNameExist(userName)) {
             manager.addUser(connectionId);
             manager.addUserNameAndPass(userName, pass);
+            loggedInUsers.putIfAbsent(connectionId, userName);
         } else {
             if (!manager.isCorrectPass(userName, pass)) {
                 System.out.println("wrong password");
                 throw new FrameException("wrong password", message);
-            } else if (connections.isLoggedIn(connectionId)) {
+            } else if (loggedInUsers.putIfAbsent(connectionId, userName) != null) {
                 System.out.println("user already logged in");
                 throw new FrameException("user already logged in", message);
             }
 
         }
+        tryGetReceiptId(connectionId, message);
         HashMap<String, String> connectedHeaders = new HashMap<>();
         connectedHeaders.put("version", version);
         return new StompFrame("CONNECTED", connectedHeaders, "");
@@ -82,10 +85,12 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
 
     public StompFrame disconnect(int connectionId, StompFrame message) throws FrameException {
         manager.emptyUserChannels(connectionId);
-        connections.disconnect(connectionId);
         HashMap<String, String> receiptHeaders = new HashMap<>();
         receiptHeaders.put("receipt-id", message.getHeaderByKey("receipt"));
-
+        if (loggedInUsers.remove(connectionId) == null)
+            throw new FrameException("user is not connected", message);
+        connections.disconnect(connectionId);
+        System.out.println("user disconnected");
         return new StompFrame("RECEIPT", receiptHeaders, "");
     }
 
@@ -109,7 +114,6 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
     }
 
     public void send(int connectionId, StompFrame message) throws FrameException {
-        tryGetReceiptId(connectionId, message);
         String[] valueParts = message.getHeaderByKey("destination").split("/");
         String topic = valueParts[valueParts.length - 1];
         String body = message.getBody();
@@ -119,6 +123,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         messageHeaders.put("message - id", String.valueOf(getNewMessageId()));
         messageHeaders.put("destination", message.getHeaderByKey("destination"));
         StompFrame messageFrame = new StompFrame("MESSAGE", messageHeaders, body);
+        tryGetReceiptId(connectionId, message);
         connections.send(topic, messageFrame);
     }
 
