@@ -62,9 +62,9 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         String version = message.getHeaderByKey("accept-version");
         String userName = message.getHeaderByKey("login");
         String pass = message.getHeaderByKey("passcode");
+        manager.addUser(connectionId);
         message.getHeaderByKey("host"); //just to check it is a valid header
         if (!manager.isUserNameExist(userName)) {
-            manager.addUser(connectionId);
             manager.addUserNameAndPass(userName, pass);
             loggedInUsers.putIfAbsent(connectionId, userName);
         } else {
