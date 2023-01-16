@@ -41,10 +41,10 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
                     shouldTerminate = true;
                     break;
                 case "SUBSCRIBE":
-                    responseMsg = subscribe(connectionId, message);
+                    subscribe(connectionId, message);
                     break;
                 case "UNSUBSCRIBE":
-                    responseMsg = unsubscribe(connectionId, message);
+                    unsubscribe(connectionId, message);
                     break;
                 case "SEND":
                     send(connectionId,message);
@@ -94,23 +94,18 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         return new StompFrame("RECEIPT", receiptHeaders, "");
     }
 
-    public StompFrame subscribe(int connectionId, StompFrame message) throws FrameException {
+    public void subscribe(int connectionId, StompFrame message) throws FrameException {
         String[] valueParts = message.getHeaderByKey("destination").split("/");
         String topic = valueParts[valueParts.length - 1];
         String id = (message.getHeaderByKey("id"));
-        String receipt = message.getHeaderByKey("receipt");
+        tryGetReceiptId(connectionId, message);
         Integer subId = manager.parseToInt(id,message);
         manager.subscribeUser(connectionId, topic, subId);
-        HashMap<String, String> receiptHeaders = new HashMap<>();
-        receiptHeaders.put("receipt-id", receipt);
-        return new StompFrame("RECEIPT", receiptHeaders, "");
     }
 
-    public StompFrame unsubscribe(int connectionId, StompFrame message) throws FrameException{
-        HashMap<String, String> receiptHeaders = new HashMap<>();
+    public void unsubscribe(int connectionId, StompFrame message) throws FrameException{
         manager.unsubscribeUser(connectionId,message.getHeaderByKey("id"),message);
-        receiptHeaders.put("receipt-id", message.getHeaderByKey("id"));
-        return new StompFrame("RECEIPT", receiptHeaders, "");
+        tryGetReceiptId(connectionId, message);
     }
 
     public void send(int connectionId, StompFrame message) throws FrameException {
