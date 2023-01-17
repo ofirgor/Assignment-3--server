@@ -71,7 +71,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
             if (!manager.isCorrectPass(userName, pass)) {
                 System.out.println("wrong password");
                 throw new FrameException("wrong password", message);
-            } else if (loggedInUsers.putIfAbsent(connectionId, userName) != null) {
+            } else if (manager.isUserNameExist(userName)) {
                 System.out.println("user already logged in");
                 throw new FrameException("user already logged in", message);
             }

@@ -5,7 +5,6 @@ public class StompFrame {
     protected String frameType;
     private Map<String,String> headers;
     private String body;
-    public final char NULL_CHAR = '\u0000';
 
     public StompFrame(){
         this.frameType = null;
@@ -15,7 +14,7 @@ public class StompFrame {
     public StompFrame(String command, Map<String, String> headers, String body) {
         this.frameType = command;
         this.headers = headers;
-        this.body = body + "\n" + NULL_CHAR;
+        this.body = body;
     }
 
     public String getFrameType(){
@@ -26,15 +25,6 @@ public class StompFrame {
     }
     public Map<String,String> getHeaders(){
         return headers;
-    }
-    public void setFrameType(String frameType){
-        this.frameType = frameType;
-    }
-    public void setBody(String body){
-        this.body = body;
-    }
-    public void setHeaders(String key, String value){
-        headers.put(key, value);
     }
     public String getHeaderByKey(String headerName) throws FrameException{
         if(headers.containsKey(headerName))
@@ -48,7 +38,7 @@ public class StompFrame {
         for (Map.Entry<String, String> entry : headers.entrySet()) {
             sb.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
         }
-        sb.append("\n").append(body).append("\n");
+        sb.append("\n").append(body);
         return sb.toString();
     }
 
