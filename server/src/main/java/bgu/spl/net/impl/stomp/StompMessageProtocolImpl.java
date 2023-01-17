@@ -29,15 +29,15 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
 
     @Override
     public void process(StompFrame message) {
-        StompFrame responseMsg = null;
         String frameType = message.getFrameType();
         try {
             switch (frameType) {
                 case "CONNECT":
-                    responseMsg = connect(connectionId, message);
+                    connections.send(connectionId, connect(connectionId, message));
                     break;
                 case "DISCONNECT":
-                    responseMsg = disconnect(connectionId, message);
+                    connections.send(connectionId, disconnect(connectionId, message));
+                    connections.disconnect(connectionId);
                     shouldTerminate = true;
                     break;
                 case "SUBSCRIBE":
@@ -50,8 +50,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
                     send(connectionId,message);
                     break;
             }
-            if (responseMsg != null)
-                connections.send(connectionId, responseMsg);
+
         } catch (FrameException ex) {
             ex.printStackTrace();
             connections.send(connectionId, ex.makeErrorFrame());
@@ -71,7 +70,7 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
             if (!manager.isCorrectPass(userName, pass)) {
                 System.out.println("wrong password");
                 throw new FrameException("wrong password", message);
-            } else if (manager.isUserNameExist(userName)) {
+            } else if (loggedInUsers.containsValue(userName)) {
                 System.out.println("user already logged in");
                 throw new FrameException("user already logged in", message);
             }
@@ -89,7 +88,6 @@ public class StompMessageProtocolImpl implements StompMessagingProtocol<StompFra
         receiptHeaders.put("receipt-id", message.getHeaderByKey("receipt"));
         if (loggedInUsers.remove(connectionId) == null)
             throw new FrameException("user is not connected", message);
-        connections.disconnect(connectionId);
         System.out.println("user disconnected");
         return new StompFrame("RECEIPT", receiptHeaders, "");
     }
